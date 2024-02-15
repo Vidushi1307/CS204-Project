@@ -4,7 +4,7 @@
 #include<string>
 #include<algorithm>
 using namespace std;
-map<string,string> opcode, f3, f7;
+map<string,string> opcode, f3, f7, formatType;
 string opname,r1,r2,rd,mc,conv = "0123456789ABCDEF";
 int pc = 0, parserIndex = 0;
 
@@ -14,12 +14,15 @@ string formatPC(int pc)
 	string pcInHex;	
 	int temp = pc;
 	if (temp == 0) pcInHex = '0';
+	
+	//Converting to hex
 	while (temp)
 	{
 		pcInHex += conv[temp%16];
 		temp /= 16;
 	}
 	reverse(pcInHex.begin(), pcInHex.end());
+	
 	return "0x" + pcInHex;
 }
 
@@ -40,22 +43,38 @@ string bin2hex(string s)
 }
 
 //Function that reads RtypeInstructions.txt and stores opcode, func3, func7 values into maps.
-void buildRmaps()
+void buildRMaps()
 {
 	ifstream iFile("RtypeInstructions.txt");
 	string temp, name;
 	while(1)
 	{
-		iFile >> name;
-		iFile >> temp;
+		iFile >> name; //Reading operation name.
+		if (name == "end" || iFile.eof()) break;
+		iFile >> temp; //Reading opcode.
 		opcode[name] = temp;
-		iFile >> temp;
+		
+		iFile >> temp; //Reading func3.
 		f3[name] = temp;
-		iFile >> temp;
+		
+		iFile >> temp; //Reading func7.
 		f7[name] = temp;
-		if (iFile.eof()) break;
+		
+		iFile >> temp; //Reading formatType.
+		formatType[name] = temp;
 	}
 	iFile.close();
+}
+
+
+void buildMaps()
+{
+	buildRMaps();
+//	buildIMaps();
+//	buildSMaps();
+//	buildSBMaps();
+//	buildUMaps();
+//	buildUJMaps();
 }
 
 
@@ -102,7 +121,6 @@ string getReg(string inst)
 //Getting all the fields and creating the machine code from them, for R type instruction.
 void typeRmc(string inst)
 {
-	opname = getName(inst);
 	rd = getReg(inst);
 	r1 = getReg(inst);
 	r2 = getReg(inst);
@@ -116,10 +134,19 @@ void typeRmc(string inst)
 }
 
 
+void invalidInstruction(string inst)
+{
+	ofstream mcFile("demoOutput.mc", ios::app);
+	mcFile << formatPC(pc) << " " << "Invalid instruction: " << inst << endl;
+	mcFile.close();
+	parserIndex = 0;
+}
+
+
 int main()
 {
 	string inst;
-	buildRmaps();
+	buildMaps();
 	ifstream asmFile("demoInput.asm");
 	ofstream temp("demoOutput.mc"); temp.close();
 	ofstream mcFile("demoOutput.mc", ios::app);
@@ -128,7 +155,14 @@ int main()
 		inst = "";
 		getline(asmFile,inst); //user input of instruction.
 		if (asmFile.eof()) break;
-		typeRmc(inst); //Creating machine code for type R.
+		opname = getName(inst);
+		if (formatType[opname] == "R") typeRmc(inst); //Creating machine code for type R.
+		else if (formatType[opname]=="I") ; //typeImc(inst);
+		else if (formatType[opname]=="S") ; //typeSmc(inst);
+		else if (formatType[opname]=="SB") ; //typeSBmc(inst);
+		else if (formatType[opname]=="U") ; //typeUmc(inst);
+		else if (formatType[opname]=="UJ") ; //typeUJmc(inst);
+		else invalidInstruction(inst);			
 		pc += 4;
 		opname = "";
 		r1 = "";

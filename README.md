@@ -1,26 +1,22 @@
 # CS204-Project
-How it works currently:
+# How it works currently:
+
 RtypeInstructions.txt has operations stored in the following format:
 
 opname opcode func3 func7
 	
 demoInput.asm has input assembly code (only R type instructions so far).
 demoOutput.asm has the corresponding machine code.
-	
-Rconvert.cpp has the main code so far. It contains all the functions.
-	
-Problem I don't yet know how to solve elegantly: 
-How to tell what format (R,I,S,SB,U,UJ) an instruction is after reading it?
-we will have to do this in order to parse the instruction correctly.
-	
 
+ASMtoMC.cpp has the main code. It contains all the functions.
+	
 To be done:
+Create similar Instructions.txt for I,S,SB,U,UJ type instructions as well.
 
-Create similar code files for Itype, Stype, etc..
+Create functions that read Instructions.txt for other types, and functions that convert instructions of those types to machine code.
+bin2hex can be reused for any type.
 
 Write code that takes care of the assembler directives (.data, .byte, etc..)
-	
-Create a main code file that accesses all the R,I,S,SB,U,UJ files.
 	
 	
 Things to clarify with sir:
