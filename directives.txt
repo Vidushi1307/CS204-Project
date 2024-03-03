@@ -4,6 +4,6 @@ word 4
 byte 1
 half 2
 double 8
-asciiz -2
-string -2
+asciiz -1
+string -1
 end 0

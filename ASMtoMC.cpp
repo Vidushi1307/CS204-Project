@@ -23,41 +23,96 @@ string inst, opname, dirname, mc, conv = "0123456789ABCDEF", dataSegment;
 // dataSegment : the entire data segment (because it has to be printed after the text segment).
 
 
-int pc = 0, dc = 0;
+int pc = 0, dc = 0x10000000;
 // pc : program counter
 // dc : data counter
 
 
-//Extract name of directive from instruction
-string getDirectiveName()
+//Function List
+// 1. Common Functions.
+string counterToHex(int counter); //Returns counter in hexadecimal.
+string bin2hex(string s); //Converts binary machine code string to hexadecimal string.
+void buildMaps(); //Calls all the other map building functions.
+int bitCount(unsigned long long int x); //Counts the number of bits in x.
+void skipDelimiters(); //Skips any spaces, commas, and closing parantheses before the next characters in the instruction. -- ' ' or ',' or ')'.
+
+
+// 2. Data Segment Functions.
+string getDirectiveName(); //Returns the name of assembler directive.
+void buildDirectiveMaps(); //Creates and initializes the dataInc map.
+void invalidDirective(); //Informs user that the directive does not exist in the database.
+void outOfRange(long long int x); //Informs user that the number entered is out of range.
+string invalidString(string temp); //Informs user that the string entered is incorrect.
+string getString(); //Reads next string from instruction.
+void dataSegmentReader(istream& asmFile); //Reads the data segment of the program.
+
+
+// 3. Text Segment Functions.
+void buildRMaps(); //Creates and initializes maps related to R-type instructions.
+string getName(); //Returns the name of the instruction.
+string getReg(); //Returns the next register in the instruction.
+void typeRmc();  //Creates the machine code for an R-type instruction.
+void invalidInstruction(); //Informs user that the instruction does not exist in the database.
+void formatMatcher(); //Calls the machine code creating functions of different formats.
+
+
+
+//Driver function.
+int main()
 {
-	inst.erase(0,1); //Remove the '.'
-	string directive = "";
-	while(inst.length() && inst[0] != ' ') //while you don't hit a delimiter,
+	buildMaps();
+	ifstream asmFile(INPUTFILE); //Opening input file.
+	ofstream temp(OUTPUTFILE); temp.close(); //Clearing output file.
+	ofstream mcFile(OUTPUTFILE, ios::app); //Opening output file.
+	getline(asmFile,inst);
+	while(!asmFile.eof())
 	{
-		directive += inst[0]; //append to directive
-		inst.erase(0,1);
+		if (inst[0] == '.') //If instruction might be a directive,
+		{
+			dirname = getDirectiveName();
+			skipDelimiters();
+			if (dataInc[dirname] != "") dataSegmentReader(asmFile);
+			else invalidDirective(); //If directive is not valid.
+			dirname = "";
+		}
+		else
+		{
+			opname = getName();
+			skipDelimiters();
+			if (formatType[opname] != "") formatMatcher();
+			else invalidInstruction();			
+			pc += 4;
+			opname = "";
+		}
+		inst = "";
+		getline(asmFile,inst); //Get next line from assembly code file.
 	}
-	return directive; //return the name of the directive.
+	mcFile << "-------End Of Code Segment-------" << endl; //Marking end of code segment. 
+	mcFile << dataSegment;
+	mcFile.close();
+	asmFile.close();
+	return 0;
 }
 
 
+
+/*-------------------------------------------------- COMMON FUNCTIONS --------------------------------------------------*/
 //Function to convert integer pc to hexadecimal.
-string counterToHex(int pc)
+string counterToHex(int counter)
 {
-	string pcInHex;	
-	int temp = pc;
-	if (temp == 0) pcInHex = '0';
+	string counterInHex;	
+	int temp = counter;
+	if (temp == 0) counterInHex = '0';
 	
 	//Converting to hex
 	while (temp)
 	{
-		pcInHex += conv[temp%16];
+		counterInHex += conv[temp%16];
 		temp /= 16;
 	}
-	reverse(pcInHex.begin(), pcInHex.end());
+	reverse(counterInHex.begin(), counterInHex.end());
 	
-	return "0x" + pcInHex;
+	return "0x" + counterInHex;
 }
 
 
@@ -76,6 +131,36 @@ string bin2hex(string s)
 	}
 	return hex;
 }
+
+
+void buildMaps()
+{
+	buildDirectiveMaps();
+	buildRMaps();
+//	buildIMaps();
+//	buildSMaps();
+//	buildSBMaps();
+//	buildUMaps();
+//	buildUJMaps();
+}
+
+
+int bitCount(unsigned long long int x)
+{
+	int count = 0;
+	while(x /= 2) count++;
+	return count+1;
+}
+
+
+void skipDelimiters()
+{
+	while (inst.length() && (inst[0] == ' ' || inst[0] == ',' || inst[0] == ')')) inst.erase(0,1);
+}
+
+
+/*-------------------------------------------------- TEXT SEGMENT FUNCTIONS --------------------------------------------------*/
+
 
 //Function that reads RtypeInstructions.txt and stores opcode, func3, func7 values into maps.
 void buildRMaps()
@@ -102,49 +187,24 @@ void buildRMaps()
 }
 
 
-void buildDirectiveMaps()
-{
-	ifstream iFile("RtypeInstructions.txt");
-	string increment, name;
-	while(1)
-	{
-		iFile >> name; //Reading operation name.
-		if (name == "end" || iFile.eof()) break;
-		iFile >> increment; //Reading increment.
-		dataInc[name] = increment;
-	}
-	iFile.close();
-}
-
-
-void buildMaps()
-{
-	buildDirectiveMaps();
-	buildRMaps();
-//	buildIMaps();
-//	buildSMaps();
-//	buildSBMaps();
-//	buildUMaps();
-//	buildUJMaps();
-}
-
-
+//Getting the name of the instruction.
 string getName()
 {
 	string name;
 	while(inst.length() && inst[0] != ' ' && inst[0] != ',')
 	{
 		name += inst[0];
-		inst.erase(0,1);
-//		parserIndex++;
+		inst.erase(0,1); //erasing the character read.
 	}
 	return name;
 }
 
 
+//Getting the register name.
 string getReg()
 {
 	string reg;
+	if (inst[0] == '(') inst.erase(0,1); //getting rid of the potential '(' for load-store type of instructions.
 	if (inst[0] == 'x') inst.erase(0,1); //getting rid of the 'x'.
 	else return "";	
 	
@@ -154,13 +214,13 @@ string getReg()
 		reg += inst[0];
 		inst.erase(0,1);
 	}
-	while (inst.length() && (inst[0] == ' ' || inst[0] == ',')) inst.erase(0,1);
+	skipDelimiters();
 
 	//converting register number to int.
 	int x = stoi(reg);
 	reg = "";
 	
-	//converting the int to a 5 bit binary number.
+	//converting the int to a 5 bit binary string.
 	for (int i = 0; i < 5; i++)
 	{
 		if (x&1) reg += '1';
@@ -200,71 +260,6 @@ void invalidInstruction()
 }
 
 
-string getData(long int n, int increment)
-{
-	string num = "";
-	cout << n << " " << (1<<(increment)*8)-1 << endl;
-	if (abs(n) > (1<<(increment*8))-1) num = "Number outside expected range";
-	else
-	{
-		while (n)
-		{
-			if (n&1) num += '1';
-			else num += '0';
-			n = n>>1;
-		}
-		reverse(num.begin(),num.end());
-		num = bin2hex(num);
-	}
-	num = counterToHex(dc) + " " + num;
-	dc += increment;
-	return num;
-}
-
-
-void dataSegmentReader(istream& asmFile)
-{
-	if (dirname == "text") return;
-	if (dirname == "data")
-	{
-		getline(asmFile,inst);
-		dirname = getDirectiveName();
-	}
-//	while (1)
-//	{
-//		
-//	}
-//	ifstream asmFile(INPUTFILE);
-/*	while(1)
-	{
-		int increment = 0;
-		string directive = "", data = "";
-		asmFile >> directive;
-		if (directive == ".text") return;
-		if (directive == ".byte") increment = 1;
-		else if (directive == ".half") increment = 2;
-		else if (directive == ".word") increment = 4;
-		else if (directive == ".double") increment = 8;
-		else if (directive == ".string" || directive == ".asciiz") ;
-		else invalidInstruction(directive);
-		getline(asmFile, data);
-		if (data[0] == '\n') continue; //If user doesn't enter any data after .byte or .half or ... then move on.
-		
-		for (int i = 0; increment && i < data.length(); i++)
-		{
-			string num = "";
-			while (data[i] == ' ' || data[i] == '\t') i++;
-			while (data[i] != ' ' && data[i] != '\t') num += data[i++];
-			long int n = stoi(num);
-			dataSegment += getData(n, increment) + '\n';
-		}
-		
-		if (asmFile.eof()) return asmFile;
-	}
-*/
-}
-
-
 void formatMatcher()
 {
 	if (formatType[opname] == "R") typeRmc(); //Creating machine code for type R.
@@ -276,38 +271,132 @@ void formatMatcher()
 }
 
 
-int main()
+/*-------------------------------------------------- DATA SEGMENT FUNCTIONS --------------------------------------------------*/
+//Extract name of directive from instruction
+string getDirectiveName()
 {
-	buildMaps();
-	ifstream asmFile(INPUTFILE);
-	ofstream temp(OUTPUTFILE); temp.close(); //Clearing output file.
-	ofstream mcFile(OUTPUTFILE, ios::app);
-	getline(asmFile,inst);
-	while(!asmFile.eof())
+	inst.erase(0,1); //Remove the '.'
+	string directive = "";
+	while(inst.length() && inst[0] != ' ') //while you don't hit a delimiter,
 	{
-		if (inst[0] == '.')
-		{
-			dirname = getDirectiveName();
-			while (inst.length() && inst[0] == ' ') inst.erase(0,1);
-			if (dataInc[dirname] != "") dataSegmentReader(asmFile);
-		//	else invalidDirective();
-			dirname = "";
-		}
-		else
-		{
-			opname = getName();
-			while (inst[0] == ' ' || inst[0] == ',' && inst.length()) inst.erase(0,1);
-			if (formatType[opname] != "") formatMatcher();
-			else invalidInstruction();			
-			pc += 4;
-			opname = "";
-		}
-		inst = "";
-		getline(asmFile,inst); //user input of instruction.
+		directive += inst[0]; //append to directive
+		inst.erase(0,1);
 	}
-	mcFile << "-------End Of Code Segment-------" << endl; //Marking end of code segment. 
-	mcFile << dataSegment;
-	mcFile.close();
-	asmFile.close();
-	return 0;
+	return directive; //return the name of the directive.
 }
+
+
+void buildDirectiveMaps()
+{
+	ifstream iFile("directives.txt");
+	string increment, name;
+	while(1)
+	{
+		iFile >> name; //Reading operation name.
+		if (name == "end" || iFile.eof()) break;
+		iFile >> increment; //Reading increment.
+		dataInc[name] = increment;
+	}
+	iFile.close();
+}
+
+
+void invalidDirective()
+{
+	ofstream mcFile(OUTPUTFILE, ios::app);
+	mcFile << "Invalid directive: ." << dirname << endl;
+	mcFile.close();
+}
+
+
+void outOfRange(long long int x)
+{
+	ofstream mcFile(OUTPUTFILE, ios::app);
+	mcFile << "Number " << x << " is out of range for " << dirname << endl;
+	mcFile.close();
+}
+
+
+string invalidString(string temp)
+{
+	ofstream mcFile(OUTPUTFILE, ios::app);
+	mcFile << "Invalid string " << '"' << temp << endl;
+	mcFile.close();
+	return "";
+}
+
+//Reading next string from instruction.
+string getString()
+{
+	string temp = "";
+	while (inst.length() && inst[0] != '"')
+	{
+		temp += inst[0];
+		inst.erase(0,1);
+	}
+	if (inst.length()) inst.erase(0,1); //Checking if the string ended with a double quote.
+	else return invalidString(temp);
+	return temp;
+}
+
+
+void dataSegmentReader(istream& asmFile)
+{
+	int increment = stoi(dataInc[dirname]); //Getting increment correspponding to directive.
+	string num = "";
+	if (increment < 0) //Increment is set as -1 for .text, .data, .string, and .asciiz
+	{
+		if (dirname == "text") return; //If .text, return back and continue with next instruction.
+		else if (dirname == "data") //If .data, get the next directive.
+		{
+			getline(asmFile,inst);
+			dirname = getDirectiveName();
+			increment = stoi(dataInc[dirname]);
+		}
+		else if (dirname == "string" || dirname == "asciiz")
+		{
+			inst.erase(0,1); //Getting rid of the opening double quote ".
+			num += getString();
+			
+			if (num != "") dataSegment += counterToHex(dc) + " " + num + '\n';
+			dc += num.length();
+			return;
+		}
+		else return;
+	}
+	if (increment == 0) invalidDirective(); //If .data is followed by an invalid directive.
+	while (inst.length() && increment > 0)
+	{
+		skipDelimiters();
+		//Read number to be stored.
+		while(inst.length() && inst[0] != ' ')
+		{
+			num += inst[0];
+			inst.erase(0,1);
+		}
+		
+		//Convert to integer
+		long long int x = stoi(num);
+		num = "";
+		
+		//Confirm number is in range.
+		if (bitCount(abs(x)) > 8*increment)
+		{
+			outOfRange(x);
+			continue;
+		}
+		
+		//Convert number to hex string.
+		for (int i = 0; i < 2*increment; i++)
+		{
+			num += conv[((x%16)+16)%16];
+			x = x >> 4;
+		}
+		reverse(num.begin(), num.end());
+
+		//Append to data segment.
+		dataSegment += counterToHex(dc) + " 0x" + num + "\n";
+		dc += increment;
+	}
+}
+

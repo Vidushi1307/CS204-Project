@@ -13,3 +13,9 @@ sll x9, x10, x11
 srl x10, x11, x12
 sra x11, x12, x13
 xor x12, x13, x14
+.data
+.word 10 20 40 69 -1
+.byte 10 20 40 69 -1
+.string "myString"
+.half 10 20 40 69 -1
+.double 10 20 40 69 -1
