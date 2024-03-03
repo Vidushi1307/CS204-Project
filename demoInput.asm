@@ -1,9 +1,9 @@
 lw x3, 0(x31)
 add x1, x2, x3
 jal x1, -8
-add x1, x2, x3
+label1: add x1, x2, x3
 sub x2, x3, x4
-mul x3, x4, x5
+label3: mul x3, x4, x5
 div x4, x5, x6
 rem x5, x6, x7
 and x6, x7, x8
@@ -14,7 +14,7 @@ srl x10, x11, x12
 sra x11, x12, x13
 xor x12, x13, x14
 .data
-.word 10 20 40 69 -1
+label2: .word 10 20 40 69 -1
 .byte 10 20 40 69 -1
 .string "myString"
 .half 10 20 40 69 -1

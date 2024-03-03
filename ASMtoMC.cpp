@@ -7,12 +7,13 @@
 #define OUTPUTFILE "demoOutput.mc"
 using namespace std;
 map<string,string> dataInc, opcode, f3, f7, formatType;
+map<string,int> labelAddress;
 // dataInc : maps directive name to number of bytes to skip.
 // opcaode : maps instruction name to string corresponding to opcode.
 // f3 : maps instruction name to string corresponding to func3.
 // f7 : maps instruction name to string corresponding to func7.
 // formatType : maps instruction name to its format (R,I,S,SB,U,UJ).
-
+// labelAddress : maps label names to addresses.
 
 string inst, opname, dirname, mc, conv = "0123456789ABCDEF", dataSegment;
 // inst : instruction currently being parsed.
@@ -37,7 +38,17 @@ int bitCount(unsigned long long int x); //Counts the number of bits in x.
 void skipDelimiters(); //Skips any spaces, commas, and closing parantheses before the next characters in the instruction. -- ' ' or ',' or ')'.
 
 
-// 2. Data Segment Functions.
+// 2. Text Segment Functions.
+void buildRMaps(); //Creates and initializes maps related to R-type instructions.
+string getName(); //Returns the name of the instruction.
+string getReg(); //Returns the next register in the instruction.
+void typeRmc();  //Creates the machine code for an R-type instruction.
+void invalidInstruction(); //Informs user that the instruction does not exist in the database.
+void labelAlreadyExists(string label); //Informs user that the label found was already previously used.
+void formatMatcher(); //Calls the machine code creating functions of different formats.
+
+
+// 3. Data Segment Functions.
 string getDirectiveName(); //Returns the name of assembler directive.
 void buildDirectiveMaps(); //Creates and initializes the dataInc map.
 void invalidDirective(); //Informs user that the directive does not exist in the database.
@@ -45,15 +56,6 @@ void outOfRange(long long int x); //Informs user that the number entered is out 
 string invalidString(string temp); //Informs user that the string entered is incorrect.
 string getString(); //Reads next string from instruction.
 void dataSegmentReader(istream& asmFile); //Reads the data segment of the program.
-
-
-// 3. Text Segment Functions.
-void buildRMaps(); //Creates and initializes maps related to R-type instructions.
-string getName(); //Returns the name of the instruction.
-string getReg(); //Returns the next register in the instruction.
-void typeRmc();  //Creates the machine code for an R-type instruction.
-void invalidInstruction(); //Informs user that the instruction does not exist in the database.
-void formatMatcher(); //Calls the machine code creating functions of different formats.
 
 
 
@@ -65,6 +67,7 @@ int main()
 	ofstream temp(OUTPUTFILE); temp.close(); //Clearing output file.
 	ofstream mcFile(OUTPUTFILE, ios::app); //Opening output file.
 	getline(asmFile,inst);
+	skipDelimiters();
 	while(!asmFile.eof())
 	{
 		if (inst[0] == '.') //If instruction might be a directive,
@@ -91,6 +94,12 @@ int main()
 	mcFile << dataSegment;
 	mcFile.close();
 	asmFile.close();
+
+// Printing the label addresses for checking.
+//	for (auto it = labelAddress.begin(); it != labelAddress.end(); it++)
+//	{
+//		cout << it->first << " " << counterToHex(it->second) << endl;
+//	}
 	return 0;
 }
 
@@ -191,10 +200,19 @@ void buildRMaps()
 string getName()
 {
 	string name;
-	while(inst.length() && inst[0] != ' ' && inst[0] != ',')
+	while(inst.length() && inst[0] != ' ' && inst[0] != ',' && inst[0] != ':')
 	{
 		name += inst[0];
 		inst.erase(0,1); //erasing the character read.
+	}
+	skipDelimiters();
+	if (inst[0] == ':') //name was actually a label!
+	{
+		if (labelAddress[name]) labelAlreadyExists(name);
+		else labelAddress[name] = pc;
+		inst.erase(0,1);
+		skipDelimiters();
+		return getName();
 	}
 	return name;
 }
@@ -260,6 +278,13 @@ void invalidInstruction()
 }
 
 
+void labelAlreadyExists(string label)
+{
+	ofstream mcFile(OUTPUTFILE, ios::app);
+	mcFile << "The label " << label << ':' << " already exists at " << counterToHex(labelAddress[label]) << endl;
+}
+
+
 void formatMatcher()
 {
 	if (formatType[opname] == "R") typeRmc(); //Creating machine code for type R.
@@ -275,7 +300,21 @@ void formatMatcher()
 //Extract name of directive from instruction
 string getDirectiveName()
 {
-	inst.erase(0,1); //Remove the '.'
+	if(inst[0] == '.') inst.erase(0,1); //Remove the '.'
+	else
+	{
+		string label = "";
+		while(inst.length() && inst[0] != ':' && inst[0] != ' ') //while you don't hit a delimiter,
+		{
+			label += inst[0]; //append to directive
+			inst.erase(0,1);
+		}
+		if (inst.length() && inst[0] == ':') inst.erase(0,1);
+		skipDelimiters();
+		if (labelAddress[label]) labelAlreadyExists(label);
+		else labelAddress[label] = dc; //adding the label to the map.
+		return getDirectiveName();
+	}
 	string directive = "";
 	while(inst.length() && inst[0] != ' ') //while you don't hit a delimiter,
 	{
@@ -376,6 +415,7 @@ void dataSegmentReader(istream& asmFile)
 		}
 		
 		//Convert to integer
+//		cout << num << endl;
 		long long int x = stoi(num);
 		num = "";
 		
@@ -397,6 +437,7 @@ void dataSegmentReader(istream& asmFile)
 		//Append to data segment.
 		dataSegment += counterToHex(dc) + " 0x" + num + "\n";
 		dc += increment;
+		num = "";
 	}
 }
 
