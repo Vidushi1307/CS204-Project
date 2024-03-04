@@ -9,7 +9,7 @@ using namespace std;
 map<string,string> dataInc, opcode, f3, f7, formatType;
 map<string,int> labelAddress;
 // dataInc : maps directive name to number of bytes to skip.
-// opcaode : maps instruction name to string corresponding to opcode.
+// opcode : maps instruction name to string corresponding to opcode.
 // f3 : maps instruction name to string corresponding to func3.
 // f7 : maps instruction name to string corresponding to func7.
 // formatType : maps instruction name to its format (R,I,S,SB,U,UJ).
