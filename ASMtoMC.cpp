@@ -149,8 +149,8 @@ void buildMaps()
 //	buildIMaps();
 //	buildSMaps();
 	buildSBMaps();
-//	buildUMaps();
-//	buildUJMaps();
+	buildUMaps();
+	buildUJMaps();
 }
 
 
@@ -217,7 +217,43 @@ void buildSBMaps()
     iFile.close();
 }
 
+//Function that reads UtypeInstructions.txt and stores opcode values into maps.
+void buildUMaps()
+{
+    ifstream iFile("UtypeInstructions.txt");
+    string temp,name;
+    while(1)
+    {
+        iFile >> name;//reading operation name
+        if (name == "end" || iFile.eof()) break;
+        
+        iFile >> temp;//reading opcode
+        opcode[name]=temp;
 
+        iFile >> temp;//reading format type
+        formatType[name]=temp;
+    }
+    iFile.close();
+}
+
+//Function that reads UJtypeInstructions.txt and stores opcode values into maps.
+void buildUJMaps()
+{
+    ifstream iFile("UJtypeInstructions.txt");
+    string temp,name;
+    while(1)
+    {
+        iFile >> name;//reading operation name
+        if (name == "end" || iFile.eof()) break;
+        
+        iFile >> temp;//reading opcode
+        opcode[name]=temp;
+
+        iFile >> temp;//reading format type
+        formatType[name]=temp;
+    }
+    iFile.close();
+}
 //Getting the name of the instruction.
 string getName()
 {
