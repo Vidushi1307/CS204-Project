@@ -148,7 +148,7 @@ void buildMaps()
 	buildRMaps();
 //	buildIMaps();
 //	buildSMaps();
-//	buildSBMaps();
+	buildSBMaps();
 //	buildUMaps();
 //	buildUJMaps();
 }
@@ -193,6 +193,28 @@ void buildRMaps()
 		formatType[name] = temp;
 	}
 	iFile.close();
+}
+
+
+//Function that reads SBtypeInstructions.txt and stores opcode, func3 values into maps.
+void buildSBMaps()
+{
+    ifstream iFile("SBtypeInstructions.txt");
+    string temp,name;
+    while(1)
+    {
+        iFile >> name;//reading operation name
+        if (name == "end" || iFile.eof()) break;
+        iFile >> temp;//reading opcode
+        opcode[name]=temp;
+
+        iFile >> temp;//reading funct3
+        f3[name]=temp;
+
+        iFile >> temp;//reading format type
+        formatType[name]=temp;
+    }
+    iFile.close();
 }
 
 
