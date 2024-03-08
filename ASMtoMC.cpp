@@ -36,15 +36,18 @@ string bin2hex(string s); //Converts binary machine code string to hexadecimal s
 void buildMaps(); //Calls all the other map building functions.
 int bitCount(unsigned long long int x); //Counts the number of bits in x.
 void skipDelimiters(); //Skips any spaces, commas, and closing parantheses before the next characters in the instruction. -- ' ' or ',' or ')'.
+void prescan(); //Initially scans the input file to look for labels.
 
 
 // 2. Text Segment Functions.
 void buildRMaps(); //Creates and initializes maps related to R-type instructions.
+void buildSBMaps();
+void buildUMaps();
+void buildUJMaps();
 string getName(); //Returns the name of the instruction.
 string getReg(); //Returns the next register in the instruction.
 void typeRmc();  //Creates the machine code for an R-type instruction.
 void invalidInstruction(); //Informs user that the instruction does not exist in the database.
-void labelAlreadyExists(string label); //Informs user that the label found was already previously used.
 void formatMatcher(); //Calls the machine code creating functions of different formats.
 
 
@@ -96,10 +99,10 @@ int main()
 	asmFile.close();
 
 // Printing the label addresses for checking.
-//	for (auto it = labelAddress.begin(); it != labelAddress.end(); it++)
-//	{
-//		cout << it->first << " " << counterToHex(it->second) << endl;
-//	}
+	for (auto it = labelAddress.begin(); it != labelAddress.end(); it++)
+	{
+		cout << it->first << " " << counterToHex(it->second) << endl;
+	}
 	return 0;
 }
 
@@ -151,6 +154,7 @@ void buildMaps()
 	buildSBMaps();
 	buildUMaps();
 	buildUJMaps();
+	prescan();
 }
 
 
@@ -168,9 +172,38 @@ void skipDelimiters()
 }
 
 
+void prescan()
+{
+	ifstream asmFile(INPUTFILE); //Opening input file.
+	getline(asmFile,inst);
+	skipDelimiters();
+	while(!asmFile.eof())
+	{
+		if (inst[0] == '.') //If instruction might be a directive,
+		{
+			dirname = getDirectiveName();
+			skipDelimiters();
+			int increment = stoi(dataInc[dirname]);
+			if (increment > 0) dc += increment;
+			dirname = "";
+		}
+		else
+		{
+			opname = getName();
+			skipDelimiters();
+			pc += 4;
+			opname = "";
+		}
+		inst = "";
+		getline(asmFile,inst); //Get next line from assembly code file.
+	}
+	asmFile.close();
+	pc = 0;
+	dc = 0x10000000;
+}
+
+
 /*-------------------------------------------------- TEXT SEGMENT FUNCTIONS --------------------------------------------------*/
-
-
 //Function that reads RtypeInstructions.txt and stores opcode, func3, func7 values into maps.
 void buildRMaps()
 {
@@ -254,6 +287,7 @@ void buildUJMaps()
     }
     iFile.close();
 }
+
 //Getting the name of the instruction.
 string getName()
 {
@@ -266,8 +300,7 @@ string getName()
 	skipDelimiters();
 	if (inst[0] == ':') //name was actually a label!
 	{
-		if (labelAddress[name]) labelAlreadyExists(name);
-		else labelAddress[name] = pc;
+		labelAddress[name] = pc;
 		inst.erase(0,1);
 		skipDelimiters();
 		return getName();
@@ -336,13 +369,6 @@ void invalidInstruction()
 }
 
 
-void labelAlreadyExists(string label)
-{
-	ofstream mcFile(OUTPUTFILE, ios::app);
-	mcFile << "The label " << label << ':' << " already exists at " << counterToHex(labelAddress[label]) << endl;
-}
-
-
 void formatMatcher()
 {
 	if (formatType[opname] == "R") typeRmc(); //Creating machine code for type R.
@@ -367,10 +393,12 @@ string getDirectiveName()
 			label += inst[0]; //append to directive
 			inst.erase(0,1);
 		}
-		if (inst.length() && inst[0] == ':') inst.erase(0,1);
+		if (inst.length() && inst[0] == ':')
+		{
+			labelAddress[label] = dc; //adding the label to the map.
+			inst.erase(0,1);
+		}
 		skipDelimiters();
-		if (labelAddress[label]) labelAlreadyExists(label);
-		else labelAddress[label] = dc; //adding the label to the map.
 		return getDirectiveName();
 	}
 	string directive = "";
@@ -473,7 +501,6 @@ void dataSegmentReader(istream& asmFile)
 		}
 		
 		//Convert to integer
-//		cout << num << endl;
 		long long int x = stoi(num);
 		num = "";
 		
