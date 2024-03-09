@@ -387,7 +387,7 @@ string getReg()
 	return reg;
 }
 
-//Getting the immediate value.(to be debugged)
+//Getting the immediate value.(to be debugged) for sb we need 13 bit so new func for that
 string getImm()
 {	
 	string imm="";//initialising the immediate string.	
@@ -397,6 +397,7 @@ string getImm()
 		inst.erase(0,1);
 		
 	}
+	
 	int base=10;//as a default taking base 10
 	
 	if (imm[0]!='-'){ //if the given input is not a negative value
@@ -421,6 +422,11 @@ string getImm()
 		}
 	}	
 	long long int immediate;
+	if(all_of(imm.begin(),imm.end(),::isdigit)==false)
+	{
+		immediate=labelAddress[imm]-pc;
+	}
+	else
 	immediate = stoll( imm , 0 , base );
 	if (immediate > 2047 ){
 		outOfRange(immediate);
@@ -484,6 +490,320 @@ string getImm()
 	return 0;	
 }
 
+//for sb type instruction
+
+string getImm1()
+{	
+	string imm="";//initialising the immediate string.	
+	while(inst.length() && inst[0] !=' ' && inst[0] !=',' && inst[0] != '\n' && inst[0] !='(' ){ //extracting the entire immediate string from the instruction
+	
+		imm=imm+inst[0];
+		inst.erase(0,1);
+		
+	}
+	
+	int base=10;//as a default taking base 10
+	
+	if (imm[0]!='-'){ //if the given input is not a negative value
+		if ( imm[0] == '0' && imm[1] == 'b'){ //checking if the immediate is binary.
+			base=2;
+			imm.erase(0,2);
+		}
+		
+		else if( imm[0] == '0' && imm[1] == 'x' ){ //checking if the immediate if hexadecimal.
+			base=16;
+		}
+	}
+	
+	else if (imm[0] == '-'){ //if the given input is a negative number.
+		if ( imm[1] == '0' && imm[2] == 'b'){ //checking if the immediate is binary.
+			base=2;
+			imm.erase(1,2);
+		}
+		
+		else if( imm[1] == '0' && imm[2] =='x'){ //checking if the immediate is hexadecimal.
+			base=16;
+		}
+	}	
+	long long int immediate;
+	if(all_of(imm.begin(),imm.end(),::isdigit)==false)
+	{
+		immediate=labelAddress[imm]-pc;
+	}
+	else
+	immediate = stoll( imm , 0 , base );
+	if (immediate > 4095 ){
+		outOfRange(immediate);
+	}
+	else if (immediate< -4095){
+		outOfRange(immediate);
+	}
+	else{
+		string binary_representation="";
+		
+		if (immediate>=0){
+		
+		//converting the int to a 12 bit binary string.
+		for (int i = 0; i < 13; i++)
+		{
+			if (immediate&1) binary_representation += '1';
+			else binary_representation += '0';
+			immediate /= 2;
+		}
+		reverse(binary_representation.begin(),binary_representation.end()); 
+		skipDelimiters();
+		return binary_representation;
+		}
+		
+		else if(immediate<0){
+			immediate=-(immediate);
+			
+			//converting the absolute value of the int to 12 bit binary string.
+			for ( int i=0; i<13; i++){
+				if(immediate&1) binary_representation +='1';
+				else binary_representation +='0';
+				immediate /=2;
+			}
+			reverse(binary_representation.begin(), binary_representation.end());
+			for ( int i=0; i<13 ; i++){
+				if(binary_representation[i] == '0'){
+					binary_representation[i] = '1';
+				}
+				else if ( binary_representation[i] == '1'){
+					binary_representation[i] = '0';
+				}
+			}
+			int i=12;
+			while(1){
+				if(binary_representation[i] == '0'){
+					binary_representation[i] = '1';
+					break;
+				}
+				else if (binary_representation[i] == '1'){
+					binary_representation[i] = '0';
+				}
+				i=i-1;
+				
+			}
+			skipDelimiters();
+			return binary_representation;
+		}
+	}
+	
+        skipDelimiters();
+	return 0;	
+}
+
+// imm for u,uj type instructions.
+string getImm2()
+{	
+	string imm="";//initialising the immediate string.	
+	while(inst.length() && inst[0] !=' ' && inst[0] !=',' && inst[0] != '\n' && inst[0] !='(' ){ //extracting the entire immediate string from the instruction
+	
+		imm=imm+inst[0];
+		inst.erase(0,1);
+		
+	}
+	
+	long long int immediate;
+	if(labelAddress[imm]==0)
+	{
+		int base=10;//as a default taking base 10
+	
+	if (imm[0]!='-'){ //if the given input is not a negative value
+		if ( imm[0] == '0' && imm[1] == 'b'){ //checking if the immediate is binary.
+			base=2;
+			imm.erase(0,2);
+		}
+		
+		else if( imm[0] == '0' && imm[1] == 'x' ){ //checking if the immediate if hexadecimal.
+			base=16;
+		}
+	}
+	
+	else if (imm[0] == '-'){ //if the given input is a negative number.
+		if ( imm[1] == '0' && imm[2] == 'b'){ //checking if the immediate is binary.
+			base=2;
+			imm.erase(1,2);
+		}
+		
+		else if( imm[1] == '0' && imm[2] =='x'){ //checking if the immediate is hexadecimal.
+			base=16;
+		}
+	}	
+		immediate = stoll( imm , 0 , base );
+	}
+	else
+	{
+		immediate=labelAddress[imm]-pc;
+	}
+	//cout << immediate << endl;
+	if (immediate > 1048575 ){
+		outOfRange(immediate);
+	}
+	else if (immediate< -1048575){
+		outOfRange(immediate);
+	}
+	else{
+		string binary_representation="";
+		
+		if (immediate>=0){
+		
+		//converting the int to a 12 bit binary string.
+		for (int i = 0; i < 20; i++)
+		{
+			if (immediate&1) binary_representation += '1';
+			else binary_representation += '0';
+			immediate /= 2;
+		}
+		reverse(binary_representation.begin(),binary_representation.end()); 
+		skipDelimiters();
+		return binary_representation;
+		}
+		
+		else if(immediate<0){
+			immediate=-(immediate);
+			
+			//converting the absolute value of the int to 12 bit binary string.
+			for ( int i=0; i<20; i++){
+				if(immediate&1) binary_representation +='1';
+				else binary_representation +='0';
+				immediate /=2;
+			}
+			reverse(binary_representation.begin(), binary_representation.end());
+			for ( int i=0; i<20 ; i++){
+				if(binary_representation[i] == '0'){
+					binary_representation[i] = '1';
+				}
+				else if ( binary_representation[i] == '1'){
+					binary_representation[i] = '0';
+				}
+			}
+			int i=19;
+			while(1){
+				if(binary_representation[i] == '0'){
+					binary_representation[i] = '1';
+					break;
+				}
+				else if (binary_representation[i] == '1'){
+					binary_representation[i] = '0';
+				}
+				i=i-1;
+				
+			}
+			skipDelimiters();
+			return binary_representation;
+		}
+	}
+	
+        skipDelimiters();
+	return 0;	
+}
+// get imm for uj inst as it needs 21 bits
+string getImm3()
+{	
+	string imm="";//initialising the immediate string.	
+	while(inst.length() && inst[0] !=' ' && inst[0] !=',' && inst[0] != '\n' && inst[0] !='(' ){ //extracting the entire immediate string from the instruction
+	
+		imm=imm+inst[0];
+		inst.erase(0,1);
+		
+	}
+	
+	long long int immediate;
+	if(labelAddress[imm]==0)
+	{
+		int base=10;//as a default taking base 10
+	
+	if (imm[0]!='-'){ //if the given input is not a negative value
+		if ( imm[0] == '0' && imm[1] == 'b'){ //checking if the immediate is binary.
+			base=2;
+			imm.erase(0,2);
+		}
+		
+		else if( imm[0] == '0' && imm[1] == 'x' ){ //checking if the immediate if hexadecimal.
+			base=16;
+		}
+	}
+	
+	else if (imm[0] == '-'){ //if the given input is a negative number.
+		if ( imm[1] == '0' && imm[2] == 'b'){ //checking if the immediate is binary.
+			base=2;
+			imm.erase(1,2);
+		}
+		
+		else if( imm[1] == '0' && imm[2] =='x'){ //checking if the immediate is hexadecimal.
+			base=16;
+		}
+	}	
+		immediate = stoll( imm , 0 , base );
+	}
+	else
+	{
+		immediate=labelAddress[imm]-pc;
+	}
+	//cout << immediate << endl;
+	if (immediate > 1048575 ){
+		outOfRange(immediate);
+	}
+	else if (immediate< -1048575){
+		outOfRange(immediate);
+	}
+	else{
+		string binary_representation="";
+		
+		if (immediate>=0){
+		
+		//converting the int to a 12 bit binary string.
+		for (int i = 0; i < 21; i++)
+		{
+			if (immediate&1) binary_representation += '1';
+			else binary_representation += '0';
+			immediate /= 2;
+		}
+		reverse(binary_representation.begin(),binary_representation.end()); 
+		skipDelimiters();
+		return binary_representation;
+		}
+		
+		else if(immediate<0){
+			immediate=-(immediate);
+			
+			//converting the absolute value of the int to 12 bit binary string.
+			for ( int i=0; i<21; i++){
+				if(immediate&1) binary_representation +='1';
+				else binary_representation +='0';
+				immediate /=2;
+			}
+			reverse(binary_representation.begin(), binary_representation.end());
+			for ( int i=0; i<21 ; i++){
+				if(binary_representation[i] == '0'){
+					binary_representation[i] = '1';
+				}
+				else if ( binary_representation[i] == '1'){
+					binary_representation[i] = '0';
+				}
+			}
+			int i=20;
+			while(1){
+				if(binary_representation[i] == '0'){
+					binary_representation[i] = '1';
+					break;
+				}
+				else if (binary_representation[i] == '1'){
+					binary_representation[i] = '0';
+				}
+				i=i-1;
+				
+			}
+			skipDelimiters();
+			return binary_representation;
+		}
+	}
+	
+        skipDelimiters();
+	return 0;	
+}
 //Getting all the fields and creating the machine code from them, for R type instruction.
 void typeRmc()
 {
@@ -571,7 +891,60 @@ void typeSmc() //complete this.
 	mcFile << counterToHex(pc) << " " << "0x" << mc << endl;
 	mcFile.close();
 }
+//Getting all the fields and creating the machine code from them, for U type instruction.
+void typeUmc()
+{
+	string rd,imm;
+	rd = getReg();
+	imm = getImm2();
+	ofstream mcFile(OUTPUTFILE, ios::app); //appending to the output file.
+	
+	mc = imm + rd + opcode[opname];//getting bin mc
+	mc= bin2hex(mc);//converting mc to hex
 
+	mcFile << counterToHex(pc) << " " << "0x" << mc << endl;
+	mcFile.close();
+}
+//Getting all the fields and creating the machine code from them, for UJ type instruction.
+void typeUJmc()
+{
+	string rd,imm;
+	rd = getReg();
+	imm = getImm3();
+	ofstream mcFile(OUTPUTFILE, ios::app); //appending to the output file.
+	//cout << imm << endl;
+	string imm110=imm.substr(10,10);
+	string imm11=imm.substr(9,1);
+	string imm1219=imm.substr(1,8);
+	string imm20=imm.substr(0,1);
+	
+	mc = imm20 + imm110 + imm11 + imm1219 + rd + opcode[opname];//getting bin mc
+	mc= bin2hex(mc);//converting mc to hex
+
+	mcFile << counterToHex(pc) << " " << "0x" << mc << endl;
+	mcFile.close();
+}
+//Getting all the fields and creating the machine code from them, for SB type instruction.
+void typeSBmc()
+{
+	string r2,r1,imm;
+	r2=getReg();
+	r1=getReg();
+	imm=getImm1();
+	ofstream mcFile(OUTPUTFILE, ios::app); //appending to the output file.
+
+	string imm12=imm.substr(0,1);
+	string imm11=imm.substr(1,1);
+	string imm105=imm.substr(2,6);
+	string imm41=imm.substr(8,4);
+
+	mc= imm12 + imm105 + r2 + r1 + f3[opname] + imm41 + imm11 + opcode[opname];//getting bin mc
+	mc= bin2hex(mc);//converting mc to hex
+
+	mcFile << counterToHex(pc) << " " << "0x" << mc << endl;
+	mcFile.close();
+
+}
 void invalidInstruction()
 {
 	ofstream mcFile(OUTPUTFILE, ios::app);
@@ -586,9 +959,9 @@ void formatMatcher()
 	if (formatType[opname] == "R") typeRmc(); //Creating machine code for type R.
 	else if (formatType[opname]=="I") typeImc(); //Creating machine code for type I
 	else if (formatType[opname]=="S") typeSmc(); //Creating machine code for type S
-	else if (formatType[opname]=="SB") ; //typeSBmc(inst);
-	else if (formatType[opname]=="U") ; //typeUmc(inst);
-	else if (formatType[opname]=="UJ") ; //typeUJmc(inst);
+	else if (formatType[opname]=="SB") typeSBmc();// Creating mc for type SB -vtgg :)
+	else if (formatType[opname]=="U")typeUmc();// Creating mc for type U
+	else if (formatType[opname]=="UJ") typeUJmc();// Creating mc for type UJ
 }
 
 
