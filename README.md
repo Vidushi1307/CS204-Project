@@ -14,7 +14,5 @@ I plan on later splitting up all the functions into different .cpp files (accord
 and only have the main() function in ASMtoMC.cpp.
 	
 To be done:
-Create similar Instructions.txt for I,S,SB,U,UJ type instructions as well.
-
 Create functions that read Instructions.txt for other types, and functions that convert instructions of those types to machine code.
 bin2hex, getReg, etc.. can be reused for any other instruction types as well.

@@ -41,12 +41,17 @@ void prescan(); //Initially scans the input file to look for labels.
 
 // 2. Text Segment Functions.
 void buildRMaps(); //Creates and initializes maps related to R-type instructions.
+void buildIMaps(); //Creates and initializes maps related to I-type instructions.
+void buildSMaps(); //Creates and initializes maps related to S-type instructions.
 void buildSBMaps();
 void buildUMaps();
 void buildUJMaps();
 string getName(); //Returns the name of the instruction.
 string getReg(); //Returns the next register in the instruction.
+string getImm(); //Returns the immediate value that is part of the instruction.(to be created)
 void typeRmc();  //Creates the machine code for an R-type instruction.
+void typeImc();  //Creates the machine code for an I-type instruction.(to be created)
+void typeSmc(); //Creates the machine code for an S-type instruction.
 void invalidInstruction(); //Informs user that the instruction does not exist in the database.
 void formatMatcher(); //Calls the machine code creating functions of different formats.
 
@@ -99,10 +104,10 @@ int main()
 	asmFile.close();
 
 // Printing the label addresses for checking.
-	for (auto it = labelAddress.begin(); it != labelAddress.end(); it++)
-	{
-		cout << it->first << " " << counterToHex(it->second) << endl;
-	}
+//	for (auto it = labelAddress.begin(); it != labelAddress.end(); it++)
+//	{
+//		cout << it->first << " " << counterToHex(it->second) << endl;
+//	}
 	return 0;
 }
 
@@ -149,8 +154,8 @@ void buildMaps()
 {
 	buildDirectiveMaps();
 	buildRMaps();
-//	buildIMaps();
-//	buildSMaps();
+	buildIMaps();
+	buildSMaps();
 	buildSBMaps();
 	buildUMaps();
 	buildUJMaps();
@@ -168,7 +173,7 @@ int bitCount(unsigned long long int x)
 
 void skipDelimiters()
 {
-	while (inst.length() && (inst[0] == ' ' || inst[0] == ',' || inst[0] == ')')) inst.erase(0,1);
+	while (inst.length() && (inst[0] == ' ' || inst[0] == ',' || inst[0] == ')' || inst[0] == '(')) inst.erase(0,1);
 }
 
 
@@ -228,6 +233,47 @@ void buildRMaps()
 	iFile.close();
 }
 
+//Function that reads ItypeInstructions.txt and stores opcode, func3 values into maps.
+void buildIMaps()
+{
+	ifstream iFile("ItypeInstructions.txt");
+	string temp, name;
+	while(1)
+	{
+		iFile >> name; //Reading operation name.
+		if (name == "end" || iFile.eof()) break;
+		iFile >> temp; //Reading opcode.
+		opcode[name] = temp;
+
+		iFile >> temp; //Reading func3.
+		f3[name] = temp;
+
+		iFile >> temp; //Reading formatType.
+		formatType[name] = temp;
+	}
+	iFile.close();
+}
+
+//Function that reads StypeInstructions.txt and stores opcode, func3 values into maps.
+void buildSMaps()
+{
+	ifstream iFile("StypeInstructions.txt");
+	string temp,name;
+	while(1)
+	{
+		iFile >> name; //Reading operation name.
+		if (name == "end" || iFile.eof()) break;
+		iFile >> temp; //Reading opcode.
+		opcode[name] = temp;
+
+		iFile >> temp; //Reading func3.
+		f3[name] = temp;
+
+		iFile >> temp; //Reading formatType.
+		formatType[name] = temp;
+	}
+	iFile.close();
+}
 
 //Function that reads SBtypeInstructions.txt and stores opcode, func3 values into maps.
 void buildSBMaps()
@@ -341,6 +387,102 @@ string getReg()
 	return reg;
 }
 
+//Getting the immediate value.(to be debugged)
+string getImm()
+{	
+	string imm="";//initialising the immediate string.	
+	while(inst.length() && inst[0] !=' ' && inst[0] !=',' && inst[0] != '\n' && inst[0] !='(' ){ //extracting the entire immediate string from the instruction
+	
+		imm=imm+inst[0];
+		inst.erase(0,1);
+		
+	}
+	int base=10;//as a default taking base 10
+	
+	if (imm[0]!='-'){ //if the given input is not a negative value
+		if ( imm[0] == '0' && imm[1] == 'b'){ //checking if the immediate is binary.
+			base=2;
+			imm.erase(0,2);
+		}
+		
+		else if( imm[0] == '0' && imm[1] == 'x' ){ //checking if the immediate if hexadecimal.
+			base=16;
+		}
+	}
+	
+	else if (imm[0] == '-'){ //if the given input is a negative number.
+		if ( imm[1] == '0' && imm[2] == 'b'){ //checking if the immediate is binary.
+			base=2;
+			imm.erase(1,2);
+		}
+		
+		else if( imm[1] == '0' && imm[2] =='x'){ //checking if the immediate is hexadecimal.
+			base=16;
+		}
+	}	
+	long long int immediate;
+	immediate = stoll( imm , 0 , base );
+	if (immediate > 2047 ){
+		outOfRange(immediate);
+	}
+	else if (immediate< -2047){
+		outOfRange(immediate);
+	}
+	else{
+		string binary_representation="";
+		
+		if (immediate>=0){
+		
+		//converting the int to a 12 bit binary string.
+		for (int i = 0; i < 12; i++)
+		{
+			if (immediate&1) binary_representation += '1';
+			else binary_representation += '0';
+			immediate /= 2;
+		}
+		reverse(binary_representation.begin(),binary_representation.end()); 
+		skipDelimiters();
+		return binary_representation;
+		}
+		
+		else if(immediate<0){
+			immediate=-(immediate);
+			
+			//converting the absolute value of the int to 12 bit binary string.
+			for ( int i=0; i<12; i++){
+				if(immediate&1) binary_representation +='1';
+				else binary_representation +='0';
+				immediate /=2;
+			}
+			reverse(binary_representation.begin(), binary_representation.end());
+			for ( int i=0; i<12 ; i++){
+				if(binary_representation[i] == '0'){
+					binary_representation[i] = '1';
+				}
+				else if ( binary_representation[i] == '1'){
+					binary_representation[i] = '0';
+				}
+			}
+			int i=11;
+			while(1){
+				if(binary_representation[i] == '0'){
+					binary_representation[i] = '1';
+					break;
+				}
+				else if (binary_representation[i] == '1'){
+					binary_representation[i] = '0';
+				}
+				i=i-1;
+				
+			}
+			skipDelimiters();
+			return binary_representation;
+		}
+	}
+	
+        skipDelimiters();
+	return 0;	
+}
 
 //Getting all the fields and creating the machine code from them, for R type instruction.
 void typeRmc()
@@ -359,6 +501,76 @@ void typeRmc()
 	mcFile.close();
 }
 
+//Getting all the fields and creating the machine code from them, for I type instruction.
+void typeImc() 
+{	
+	if (opname=="addi" || opname=="andi" || opname=="ori")
+	{
+		//Extracting the registers and the immediate as binary strings.
+		string rd,r1,imm;
+		rd = getReg();
+		r1 = getReg(); //after the execution of this I should  be at the start of the immediate value.
+		imm = getImm(); //to be created
+		ofstream mcFile(OUTPUTFILE, ios::app); //appending to the output file
+		
+		mc = imm + r1 + f3[opname] + rd + opcode[opname]; //getting the binary machine code.
+		mc = bin2hex(mc); //converting the machine code to hex.
+		
+		mcFile << counterToHex(pc) << " " << "0x" << mc << endl;
+		mcFile.close();
+	}
+	
+	else if (opname == "lb" || opname == "lw" || opname == "lh" || opname == "ld"){
+		// these instructions follow the format eg: lw x5,100(x4)
+		
+		//Extracting the registers and the immediate as binary strings.
+		string rd,r1,imm;
+		rd = getReg();  
+		imm = getImm(); 
+		r1 = getReg(); 
+		ofstream mcFile(OUTPUTFILE, ios::app); // appending to the output file.
+	
+		mc = imm + r1 + f3[opname] + rd + opcode[opname]; //getting the binary machine code.
+		mc = bin2hex(mc); //converting the machine code to hex.
+		
+		mcFile << counterToHex(pc) << " " << "0x" << mc << endl;
+		mcFile.close();
+	}
+	
+	else if (opname == "jalr"){
+		//this instruction follows the format eg: sw x0,x1,0
+		
+		//Extracting the registers and the immediate as binary strings.
+		string rd,r1,imm;
+		rd = getReg();
+		r1 = getReg();
+		imm = getImm();
+		ofstream mcFile(OUTPUTFILE, ios::app); //appending to the output file.
+		
+		mc = imm + r1 + f3[opname] + rd + opcode[opname]; //getting the binary machine code.
+		mc = bin2hex(mc); //converting the machine code to hex.
+		
+		mcFile << counterToHex(pc) << " " << "0x" << mc << endl;
+		mcFile.close();
+	}
+}
+
+//Getting all the fields and creating the machine code from them, for S type instruction.
+void typeSmc() //complete this.
+{
+	//Extracting the registers and the immediate as binary strings.
+	string r2,r1,imm;
+	r2 = getReg();
+	imm = getImm();
+	r1 = getReg();
+	ofstream mcFile(OUTPUTFILE, ios::app); //appending to the output file.
+	
+	mc = imm.substr(0,7) + r2 + r1 + f3[opname] + imm.substr(7,5) + opcode[opname]; //getting the binary machine code.
+	mc = bin2hex(mc); //converting the machine code to hex.
+
+	mcFile << counterToHex(pc) << " " << "0x" << mc << endl;
+	mcFile.close();
+}
 
 void invalidInstruction()
 {
@@ -372,8 +584,8 @@ void invalidInstruction()
 void formatMatcher()
 {
 	if (formatType[opname] == "R") typeRmc(); //Creating machine code for type R.
-	else if (formatType[opname]=="I") ; //typeImc(inst);
-	else if (formatType[opname]=="S") ; //typeSmc(inst);
+	else if (formatType[opname]=="I") typeImc(); //Creating machine code for type I
+	else if (formatType[opname]=="S") typeSmc(); //Creating machine code for type S
 	else if (formatType[opname]=="SB") ; //typeSBmc(inst);
 	else if (formatType[opname]=="U") ; //typeUmc(inst);
 	else if (formatType[opname]=="UJ") ; //typeUJmc(inst);
@@ -409,6 +621,7 @@ string getDirectiveName()
 	}
 	return directive; //return the name of the directive.
 }
+
 
 
 void buildDirectiveMaps()
@@ -525,4 +738,3 @@ void dataSegmentReader(istream& asmFile)
 		num = "";
 	}
 }
-
