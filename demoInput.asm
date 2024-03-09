@@ -1,7 +1,9 @@
 lw x3, 0(x31)
 add x1, x2, x3
+beq x0,x0,label1
 jal x1, -8
 label1: add x1, x2, x3
+lui x15,0xFFFFF
 sub x2, x3, x4
 mul x3, x4, x5
 div x4, x5, x6
