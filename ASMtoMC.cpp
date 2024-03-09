@@ -594,7 +594,7 @@ string getImm1()
 	return 0;	
 }
 
-// imm for u,uj type instructions.
+// imm for u type instructions.
 string getImm2()
 {	
 	string imm="";//initialising the immediate string.	
@@ -641,7 +641,7 @@ string getImm2()
 	if (immediate > 1048575 ){
 		outOfRange(immediate);
 	}
-	else if (immediate< -1048575){
+	else if (immediate< 0){
 		outOfRange(immediate);
 	}
 	else{
