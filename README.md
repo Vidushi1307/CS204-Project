@@ -1,18 +1,22 @@
 # CS204-Project
-# How it works currently:
 
-RtypeInstructions.txt has operations stored in the following format:
+To give assembly code as input either:
+	1. Replace the code in demoInput.asm with your assembly code.
+	OR
+	2. In line 6 of ASMtoMC.cpp replace demoInput.asm with the name of (or path to) your assembly file.
 
-opname opcode func3 func7 format
-	
-demoInput.asm has input assembly code (only R type instructions so far).
-demoOutput.asm has the corresponding machine code (with messages displayed where needed).
+To compile and run:
+	g++ ASMtoMC.cpp
+	./a.out
 
-ASMtoMC.cpp has the main code. It contains all the functions.
+By default the output machine code will appear in demoOutput.mc .
+To get the output into another file, in line 7 of ASMtoMC.cpp replace demoOutput.mc with the name of (or path to) your target file.
 
-I plan on later splitting up all the functions into different .cpp files (according to format type)
-and only have the main() function in ASMtoMC.cpp.
-	
-To be done:
-Create functions that read Instructions.txt for other types, and functions that convert instructions of those types to machine code.
-bin2hex, getReg, etc.. can be reused for any other instruction types as well.
+
+The InstructionSet folder contains all the information regarding the instructions that have to be supported, like:
+name, opcode, funct3, format type, etc. ASMtoMC.cpp reads this information in the preprocessing stage and stores it into maps for use while parsing.
+
+Whenever an unknown instruction occurs, or if an instruction occurs in an unexpected format, the error message will be displayed in the corresponding location
+inside the machine code output file. The conversion doesn't halt when an error is encountered (though this behaviour can be changed easily).
+PC will also not be incremented in case of an error.
+This means, the incorrect instruction will simply be skipped.

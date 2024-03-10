@@ -28,43 +28,50 @@ int pc = 0, dc = 0x10000000;
 // pc : program counter
 // dc : data counter
 
-
 //Function List
-// 1. Common Functions.
-string counterToHex(int counter); //Returns counter in hexadecimal.
-string bin2hex(string s); //Converts binary machine code string to hexadecimal string.
+//1. Preprocessing Functions.
 void buildMaps(); //Calls all the other map building functions.
-int bitCount(unsigned long long int x); //Counts the number of bits in x.
-void skipDelimiters(); //Skips any spaces, commas, and closing parantheses before the next characters in the instruction. -- ' ' or ',' or ')'.
-void prescan(); //Initially scans the input file to look for labels.
-
-
-// 2. Text Segment Functions.
 void buildRMaps(); //Creates and initializes maps related to R-type instructions.
 void buildIMaps(); //Creates and initializes maps related to I-type instructions.
 void buildSMaps(); //Creates and initializes maps related to S-type instructions.
-void buildSBMaps();
-void buildUMaps();
-void buildUJMaps();
+void buildSBMaps(); //Creates and initializes maps related to SB-type instructions.
+void buildUMaps(); //Creates and initializes maps related to U-type instructions.
+void buildUJMaps(); //Creates and initializes maps related to UJ-type instructions.
+void buildDirectiveMaps(); //Creates and initializes the dataInc map.
+void prescan(); //Initially scans the input file to look for labels.
+
+
+//2. Parsing Functions.
 string getName(); //Returns the name of the instruction.
 string getReg(); //Returns the next register in the instruction.
-string getImm(); //Returns the immediate value that is part of the instruction.(to be created)
-void typeRmc();  //Creates the machine code for an R-type instruction.
-void typeImc();  //Creates the machine code for an I-type instruction.(to be created)
-void typeSmc(); //Creates the machine code for an S-type instruction.
-void invalidInstruction(); //Informs user that the instruction does not exist in the database.
-void formatMatcher(); //Calls the machine code creating functions of different formats.
-
-
-// 3. Data Segment Functions.
+string getImm(); //Returns the immediate value that is part of the instruction. (I,S type).
+string getImm1(); //Returns the immediate value that is part of the instruction. (SB type).
+string getImm2(); //Returns the immediate value that is part of the instruction. (U type).
+string getImm3(); //Returns the immediate value that is part of the instruction. (UJ type).
 string getDirectiveName(); //Returns the name of assembler directive.
-void buildDirectiveMaps(); //Creates and initializes the dataInc map.
-void invalidDirective(); //Informs user that the directive does not exist in the database.
-void outOfRange(long long int x); //Informs user that the number entered is out of range.
-string invalidString(string temp); //Informs user that the string entered is incorrect.
 string getString(); //Reads next string from instruction.
 void dataSegmentReader(istream& asmFile); //Reads the data segment of the program.
 
+
+//3. Machine Code creating functions.
+void formatMatcher(); //Calls the machine code creating functions of different formats.
+void typeRmc();  //Creates the machine code for an R-type instruction.
+void typeImc();  //Creates the machine code for an I-type instruction.(to be created)
+void typeSmc(); //Creates the machine code for an S-type instruction.
+void typeSBmc(); //Creates the machine code for an SB-type instruction.
+void typeUmc(); //Creates the machine code for an U-type instruction.
+void typeUJmc(); //Creates the machine code for an UJ-type instruction.
+
+
+//4. Utility Functions.
+string counterToHex(int counter); //Returns counter in hexadecimal.
+string bin2hex(string s); //Converts binary machine code string to hexadecimal string.
+int bitCount(unsigned long long int x); //Counts the number of bits in x.
+string invalidString(string temp); //Informs user that the string entered is incorrect.
+void invalidInstruction(); //Informs user that the instruction does not exist in the database.
+void invalidDirective(); //Informs user that the directive does not exist in the database.
+void skipDelimiters(); //Skips any spaces, commas, and closing parantheses before the next characters in the instruction. -- ' ' or ',' or ')'.
+void outOfRange(long long int x); //Informs user that the number entered is out of range.
 
 
 //Driver function.
@@ -98,57 +105,30 @@ int main()
 		inst = "";
 		getline(asmFile,inst); //Get next line from assembly code file.
 	}
-	mcFile << "-------End Of Code Segment-------" << endl; //Marking end of code segment. 
+	mcFile << counterToHex(pc) << " " << "0x00000000" << endl; //Marking end of code segment. 
 	mcFile << dataSegment;
 	mcFile.close();
 	asmFile.close();
 
-// Printing the label addresses for checking.
-//	for (auto it = labelAddress.begin(); it != labelAddress.end(); it++)
-//	{
-//		cout << it->first << " " << counterToHex(it->second) << endl;
-//	}
 	return 0;
 }
 
 
 
-/*-------------------------------------------------- COMMON FUNCTIONS --------------------------------------------------*/
-//Function to convert integer pc to hexadecimal.
-string counterToHex(int counter)
+/*-------------------------------------------------------------- PREPROCESSING FUNCTIONS --------------------------------------------------------------*/
+void buildDirectiveMaps()
 {
-	string counterInHex;	
-	int temp = counter;
-	if (temp == 0) counterInHex = '0';
-	
-	//Converting to hex
-	while (temp)
+	ifstream iFile("InstructionSet/directives.txt");
+	string increment, name;
+	while(1)
 	{
-		counterInHex += conv[temp%16];
-		temp /= 16;
+		iFile >> name; //Reading operation name.
+		if (name == "end" || iFile.eof()) break;
+		iFile >> increment; //Reading increment.
+		dataInc[name] = increment;
 	}
-	reverse(counterInHex.begin(), counterInHex.end());
-	
-	return "0x" + counterInHex;
+	iFile.close();
 }
-
-
-//Function to convert binary string of machine code into hexadecimal.
-string bin2hex(string s)
-{
-	string hex;
-	for (int i = 0; i < s.size();)
-	{
-		int num = 0;
-		if (s[i++] == '1') num += 8;
-		if (s[i++] == '1') num += 4;
-		if (s[i++] == '1') num += 2;
-		if (s[i++] == '1') num += 1;
-		hex += conv[num];
-	}
-	return hex;
-}
-
 
 void buildMaps()
 {
@@ -162,20 +142,130 @@ void buildMaps()
 	prescan();
 }
 
-
-int bitCount(unsigned long long int x)
+//Function that reads RtypeInstructions.txt and stores opcode, func3, func7 values into maps.
+void buildRMaps()
 {
-	int count = 0;
-	while(x /= 2) count++;
-	return count+1;
+	ifstream iFile("InstructionSet/RtypeInstructions.txt");
+	string temp, name;
+	while(1)
+	{
+		iFile >> name; //Reading operation name.
+		if (name == "end" || iFile.eof()) break;
+		iFile >> temp; //Reading opcode.
+		opcode[name] = temp;
+		
+		iFile >> temp; //Reading func3.
+		f3[name] = temp;
+		
+		iFile >> temp; //Reading func7.
+		f7[name] = temp;
+		
+		iFile >> temp; //Reading formatType.
+		formatType[name] = temp;
+	}
+	iFile.close();
 }
 
-
-void skipDelimiters()
+//Function that reads ItypeInstructions.txt and stores opcode, func3 values into maps.
+void buildIMaps()
 {
-	while (inst.length() && (inst[0] == ' ' || inst[0] == ',' || inst[0] == ')' || inst[0] == '(')) inst.erase(0,1);
+	ifstream iFile("InstructionSet/ItypeInstructions.txt");
+	string temp, name;
+	while(1)
+	{
+		iFile >> name; //Reading operation name.
+		if (name == "end" || iFile.eof()) break;
+		iFile >> temp; //Reading opcode.
+		opcode[name] = temp;
+
+		iFile >> temp; //Reading func3.
+		f3[name] = temp;
+
+		iFile >> temp; //Reading formatType.
+		formatType[name] = temp;
+	}
+	iFile.close();
 }
 
+//Function that reads StypeInstructions.txt and stores opcode, func3 values into maps.
+void buildSMaps()
+{
+	ifstream iFile("InstructionSet/StypeInstructions.txt");
+	string temp,name;
+	while(1)
+	{
+		iFile >> name; //Reading operation name.
+		if (name == "end" || iFile.eof()) break;
+		iFile >> temp; //Reading opcode.
+		opcode[name] = temp;
+
+		iFile >> temp; //Reading func3.
+		f3[name] = temp;
+
+		iFile >> temp; //Reading formatType.
+		formatType[name] = temp;
+	}
+	iFile.close();
+}
+
+//Function that reads SBtypeInstructions.txt and stores opcode, func3 values into maps.
+void buildSBMaps()
+{
+    ifstream iFile("InstructionSet/SBtypeInstructions.txt");
+    string temp,name;
+    while(1)
+    {
+        iFile >> name;//reading operation name
+        if (name == "end" || iFile.eof()) break;
+        iFile >> temp;//reading opcode
+        opcode[name]=temp;
+
+        iFile >> temp;//reading funct3
+        f3[name]=temp;
+
+        iFile >> temp;//reading format type
+        formatType[name]=temp;
+    }
+    iFile.close();
+}
+
+//Function that reads UtypeInstructions.txt and stores opcode values into maps.
+void buildUMaps()
+{
+    ifstream iFile("InstructionSet/UtypeInstructions.txt");
+    string temp,name;
+    while(1)
+    {
+        iFile >> name;//reading operation name
+        if (name == "end" || iFile.eof()) break;
+        
+        iFile >> temp;//reading opcode
+        opcode[name]=temp;
+
+        iFile >> temp;//reading format type
+        formatType[name]=temp;
+    }
+    iFile.close();
+}
+
+//Function that reads UJtypeInstructions.txt and stores opcode values into maps.
+void buildUJMaps()
+{
+    ifstream iFile("InstructionSet/UJtypeInstructions.txt");
+    string temp,name;
+    while(1)
+    {
+        iFile >> name;//reading operation name
+        if (name == "end" || iFile.eof()) break;
+        
+        iFile >> temp;//reading opcode
+        opcode[name]=temp;
+
+        iFile >> temp;//reading format type
+        formatType[name]=temp;
+    }
+    iFile.close();
+}
 
 void prescan()
 {
@@ -208,131 +298,68 @@ void prescan()
 }
 
 
-/*-------------------------------------------------- TEXT SEGMENT FUNCTIONS --------------------------------------------------*/
-//Function that reads RtypeInstructions.txt and stores opcode, func3, func7 values into maps.
-void buildRMaps()
+/*============================================================ PARSING FUNCTIONS ============================================================*/
+void dataSegmentReader(istream& asmFile)
 {
-	ifstream iFile("RtypeInstructions.txt");
-	string temp, name;
-	while(1)
+	int increment = stoi(dataInc[dirname]); //Getting increment correspponding to directive.
+	string num = "";
+	if (increment < 0) //Increment is set as -1 for .text, .data, .string, and .asciiz
 	{
-		iFile >> name; //Reading operation name.
-		if (name == "end" || iFile.eof()) break;
-		iFile >> temp; //Reading opcode.
-		opcode[name] = temp;
-		
-		iFile >> temp; //Reading func3.
-		f3[name] = temp;
-		
-		iFile >> temp; //Reading func7.
-		f7[name] = temp;
-		
-		iFile >> temp; //Reading formatType.
-		formatType[name] = temp;
+		if (dirname == "text") return; //If .text, return back and continue with next instruction.
+		else if (dirname == "data") //If .data, get the next directive.
+		{
+			getline(asmFile,inst);
+			dirname = getDirectiveName();
+			increment = stoi(dataInc[dirname]);
+		}
+		else if (dirname == "string" || dirname == "asciiz" || dirname == "asciz")
+		{
+			inst.erase(0,1); //Getting rid of the opening double quote ".
+			num += getString();
+			
+			if (num != "") dataSegment += counterToHex(dc) + " " + num + '\n';
+			dc += num.length();
+			return;
+		}
+		else return;
 	}
-	iFile.close();
-}
-
-//Function that reads ItypeInstructions.txt and stores opcode, func3 values into maps.
-void buildIMaps()
-{
-	ifstream iFile("ItypeInstructions.txt");
-	string temp, name;
-	while(1)
+	if (increment == 0) invalidDirective(); //If .data is followed by an invalid directive.
+	while (inst.length() && increment > 0)
 	{
-		iFile >> name; //Reading operation name.
-		if (name == "end" || iFile.eof()) break;
-		iFile >> temp; //Reading opcode.
-		opcode[name] = temp;
+		skipDelimiters();
+		//Read number to be stored.
+		while(inst.length() && inst[0] != ' ')
+		{
+			num += inst[0];
+			inst.erase(0,1);
+		}
+		
+		//Convert to integer
+		long long int x = stoi(num);
+		num = "";
+		
+		//Confirm number is in range.
+		if (bitCount(abs(x)) > 8*increment)
+		{
+			outOfRange(x);
+			continue;
+		}
+		
+		//Convert number to hex string.
+		for (int i = 0; i < 2*increment; i++)
+		{
+			num += conv[((x%16)+16)%16];
+			x = x >> 4;
+		}
+		reverse(num.begin(), num.end());
 
-		iFile >> temp; //Reading func3.
-		f3[name] = temp;
-
-		iFile >> temp; //Reading formatType.
-		formatType[name] = temp;
+		//Append to data segment.
+		dataSegment += counterToHex(dc) + " 0x" + num + "\n";
+		dc += increment;
+		num = "";
 	}
-	iFile.close();
 }
 
-//Function that reads StypeInstructions.txt and stores opcode, func3 values into maps.
-void buildSMaps()
-{
-	ifstream iFile("StypeInstructions.txt");
-	string temp,name;
-	while(1)
-	{
-		iFile >> name; //Reading operation name.
-		if (name == "end" || iFile.eof()) break;
-		iFile >> temp; //Reading opcode.
-		opcode[name] = temp;
-
-		iFile >> temp; //Reading func3.
-		f3[name] = temp;
-
-		iFile >> temp; //Reading formatType.
-		formatType[name] = temp;
-	}
-	iFile.close();
-}
-
-//Function that reads SBtypeInstructions.txt and stores opcode, func3 values into maps.
-void buildSBMaps()
-{
-    ifstream iFile("SBtypeInstructions.txt");
-    string temp,name;
-    while(1)
-    {
-        iFile >> name;//reading operation name
-        if (name == "end" || iFile.eof()) break;
-        iFile >> temp;//reading opcode
-        opcode[name]=temp;
-
-        iFile >> temp;//reading funct3
-        f3[name]=temp;
-
-        iFile >> temp;//reading format type
-        formatType[name]=temp;
-    }
-    iFile.close();
-}
-
-//Function that reads UtypeInstructions.txt and stores opcode values into maps.
-void buildUMaps()
-{
-    ifstream iFile("UtypeInstructions.txt");
-    string temp,name;
-    while(1)
-    {
-        iFile >> name;//reading operation name
-        if (name == "end" || iFile.eof()) break;
-        
-        iFile >> temp;//reading opcode
-        opcode[name]=temp;
-
-        iFile >> temp;//reading format type
-        formatType[name]=temp;
-    }
-    iFile.close();
-}
-
-//Function that reads UJtypeInstructions.txt and stores opcode values into maps.
-void buildUJMaps()
-{
-    ifstream iFile("UJtypeInstructions.txt");
-    string temp,name;
-    while(1)
-    {
-        iFile >> name;//reading operation name
-        if (name == "end" || iFile.eof()) break;
-        
-        iFile >> temp;//reading opcode
-        opcode[name]=temp;
-
-        iFile >> temp;//reading format type
-        formatType[name]=temp;
-    }
-    iFile.close();
-}
 
 //Getting the name of the instruction.
 string getName()
@@ -804,6 +831,54 @@ string getImm3()
         skipDelimiters();
 	return 0;	
 }
+
+
+//Extract name of directive from instruction
+string getDirectiveName()
+{
+	if(inst[0] == '.') inst.erase(0,1); //Remove the '.'
+	else
+	{
+		string label = "";
+		while(inst.length() && inst[0] != ':' && inst[0] != ' ') //while you don't hit a delimiter,
+		{
+			label += inst[0]; //append to directive
+			inst.erase(0,1);
+		}
+		if (inst.length() && inst[0] == ':')
+		{
+			labelAddress[label] = dc; //adding the label to the map.
+			inst.erase(0,1);
+		}
+		skipDelimiters();
+		return getDirectiveName();
+	}
+	string directive = "";
+	while(inst.length() && inst[0] != ' ') //while you don't hit a delimiter,
+	{
+		directive += inst[0]; //append to directive
+		inst.erase(0,1);
+	}
+	return directive; //return the name of the directive.
+}
+
+
+//Reading next string from instruction.
+string getString()
+{
+	string temp = "";
+	while (inst.length() && inst[0] != '"')
+	{
+		temp += inst[0];
+		inst.erase(0,1);
+	}
+	if (inst.length()) inst.erase(0,1); //Checking if the string ended with a double quote.
+	else return invalidString(temp);
+	return temp;
+}
+
+
+/*============================================================ MACHINE CODE CREATING FUNCTIONS ============================================================*/
 //Getting all the fields and creating the machine code from them, for R type instruction.
 void typeRmc()
 {
@@ -875,6 +950,7 @@ void typeImc()
 	}
 }
 
+
 //Getting all the fields and creating the machine code from them, for S type instruction.
 void typeSmc() //complete this.
 {
@@ -945,13 +1021,6 @@ void typeSBmc()
 	mcFile.close();
 
 }
-void invalidInstruction()
-{
-	ofstream mcFile(OUTPUTFILE, ios::app);
-	mcFile << "Invalid instruction: " << opname << endl;
-	mcFile.close();
-	pc -= 4; //decrementing pc to account for the automatic increment.
-}
 
 
 void formatMatcher()
@@ -964,52 +1033,66 @@ void formatMatcher()
 	else if (formatType[opname]=="UJ") typeUJmc();// Creating mc for type UJ
 }
 
+/*============================================================ UTILITY FUNCTIONS ============================================================*/
 
-/*-------------------------------------------------- DATA SEGMENT FUNCTIONS --------------------------------------------------*/
-//Extract name of directive from instruction
-string getDirectiveName()
+//Function to convert integer pc to hexadecimal.
+string counterToHex(int counter)
 {
-	if(inst[0] == '.') inst.erase(0,1); //Remove the '.'
-	else
+	string counterInHex;	
+	int temp = counter;
+	if (temp == 0) counterInHex = '0';
+	
+	//Converting to hex
+	while (temp)
 	{
-		string label = "";
-		while(inst.length() && inst[0] != ':' && inst[0] != ' ') //while you don't hit a delimiter,
-		{
-			label += inst[0]; //append to directive
-			inst.erase(0,1);
-		}
-		if (inst.length() && inst[0] == ':')
-		{
-			labelAddress[label] = dc; //adding the label to the map.
-			inst.erase(0,1);
-		}
-		skipDelimiters();
-		return getDirectiveName();
+		counterInHex += conv[temp%16];
+		temp /= 16;
 	}
-	string directive = "";
-	while(inst.length() && inst[0] != ' ') //while you don't hit a delimiter,
-	{
-		directive += inst[0]; //append to directive
-		inst.erase(0,1);
-	}
-	return directive; //return the name of the directive.
+	reverse(counterInHex.begin(), counterInHex.end());
+	
+	return "0x" + counterInHex;
 }
 
 
-
-void buildDirectiveMaps()
+//Function to convert binary string of machine code into hexadecimal.
+string bin2hex(string s)
 {
-	ifstream iFile("directives.txt");
-	string increment, name;
-	while(1)
+	string hex;
+	for (int i = 0; i < s.size();)
 	{
-		iFile >> name; //Reading operation name.
-		if (name == "end" || iFile.eof()) break;
-		iFile >> increment; //Reading increment.
-		dataInc[name] = increment;
+		int num = 0;
+		if (s[i++] == '1') num += 8;
+		if (s[i++] == '1') num += 4;
+		if (s[i++] == '1') num += 2;
+		if (s[i++] == '1') num += 1;
+		hex += conv[num];
 	}
-	iFile.close();
+	return hex;
 }
+
+
+int bitCount(unsigned long long int x)
+{
+	int count = 0;
+	while(x /= 2) count++;
+	return count+1;
+}
+
+
+void skipDelimiters()
+{
+	while (inst.length() && (inst[0] == ' ' || inst[0] == ',' || inst[0] == ')' || inst[0] == '(')) inst.erase(0,1);
+}
+
+
+void invalidInstruction()
+{
+	ofstream mcFile(OUTPUTFILE, ios::app);
+	mcFile << "Invalid instruction: " << opname << endl;
+	mcFile.close();
+	pc -= 4; //decrementing pc to account for the automatic increment.
+}
+
 
 
 void invalidDirective()
@@ -1036,78 +1119,4 @@ string invalidString(string temp)
 	return "";
 }
 
-//Reading next string from instruction.
-string getString()
-{
-	string temp = "";
-	while (inst.length() && inst[0] != '"')
-	{
-		temp += inst[0];
-		inst.erase(0,1);
-	}
-	if (inst.length()) inst.erase(0,1); //Checking if the string ended with a double quote.
-	else return invalidString(temp);
-	return temp;
-}
 
-
-void dataSegmentReader(istream& asmFile)
-{
-	int increment = stoi(dataInc[dirname]); //Getting increment correspponding to directive.
-	string num = "";
-	if (increment < 0) //Increment is set as -1 for .text, .data, .string, and .asciiz
-	{
-		if (dirname == "text") return; //If .text, return back and continue with next instruction.
-		else if (dirname == "data") //If .data, get the next directive.
-		{
-			getline(asmFile,inst);
-			dirname = getDirectiveName();
-			increment = stoi(dataInc[dirname]);
-		}
-		else if (dirname == "string" || dirname == "asciiz")
-		{
-			inst.erase(0,1); //Getting rid of the opening double quote ".
-			num += getString();
-			
-			if (num != "") dataSegment += counterToHex(dc) + " " + num + '\n';
-			dc += num.length();
-			return;
-		}
-		else return;
-	}
-	if (increment == 0) invalidDirective(); //If .data is followed by an invalid directive.
-	while (inst.length() && increment > 0)
-	{
-		skipDelimiters();
-		//Read number to be stored.
-		while(inst.length() && inst[0] != ' ')
-		{
-			num += inst[0];
-			inst.erase(0,1);
-		}
-		
-		//Convert to integer
-		long long int x = stoi(num);
-		num = "";
-		
-		//Confirm number is in range.
-		if (bitCount(abs(x)) > 8*increment)
-		{
-			outOfRange(x);
-			continue;
-		}
-		
-		//Convert number to hex string.
-		for (int i = 0; i < 2*increment; i++)
-		{
-			num += conv[((x%16)+16)%16];
-			x = x >> 4;
-		}
-		reverse(num.begin(), num.end());
-
-		//Append to data segment.
-		dataSegment += counterToHex(dc) + " 0x" + num + "\n";
-		dc += increment;
-		num = "";
-	}
-}
